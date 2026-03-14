@@ -45,6 +45,32 @@ const bodyEditorTA    = $("body-editor-textarea");
 const asciiSuccess    = $("ascii-success");
 const asciiArtText    = $("ascii-art-text");
 const consoleCard     = $("console-card");
+const notebookBtn     = $("notebook-btn");
+const notebookPanel   = $("notebook-panel");
+const notebookClose   = $("notebook-close");
+const notebookList    = $("notebook-list");
+const notebookEmpty   = $("notebook-empty");
+const poopCanvas      = $("poop-canvas");
+const poopCtx         = poopCanvas?.getContext("2d");
+const EASTER_EGG_WORD = "gracjan";
+const NOTEBOOK_STORAGE_KEY = "general-hook:notebook-urls";
+const AMBIENCE_STORAGE_KEY = "general-hook:sea-ambience";
+let lastPointerPos = {
+  x: window.innerWidth * 0.5,
+  y: window.innerHeight * 0.5,
+};
+let typedBuffer = "";
+let poopParticles = [];
+let poopAnimId = null;
+let lastPoopFrame = 0;
+let notebookEntries = loadNotebookEntries();
+let ambienceEnabled = loadAmbiencePreference();
+let ambienceArmed = ambienceEnabled;
+let ambiencePlayPending = false;
+const ambienceAudio = new Audio("/audio/577424__legnalegna55__water-wave.mp3");
+ambienceAudio.loop = true;
+ambienceAudio.volume = 0.1;
+ambienceAudio.preload = "auto";
 
 // ── Settings dropdown ─────────────────────────────────────────────────────────
 let terminalVisible = false;
@@ -64,6 +90,59 @@ $("toggle-terminal-btn").addEventListener("click", () => {
   $("toggle-terminal-btn").textContent = terminalVisible ? "HIDE TERMINAL" : "SEE TERMINAL";
   $("settings-dropdown").classList.add("hidden");
 });
+
+$("toggle-ambience-btn").addEventListener("click", async () => {
+  await setAmbienceEnabled(!ambienceEnabled);
+  $("settings-dropdown").classList.add("hidden");
+});
+
+notebookBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  notebookPanel.classList.toggle("hidden");
+});
+
+notebookClose.addEventListener("click", () => {
+  notebookPanel.classList.add("hidden");
+});
+
+window.addEventListener("pointermove", (event) => {
+  lastPointerPos = { x: event.clientX, y: event.clientY };
+});
+
+document.addEventListener("pointerdown", armAmbiencePlayback, { passive: true });
+document.addEventListener("keydown", armAmbiencePlayback, true);
+
+document.addEventListener("keydown", (event) => {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+  if (event.key === "Backspace") {
+    typedBuffer = typedBuffer.slice(0, -1);
+    return;
+  }
+
+  if (event.key === "Escape") {
+    typedBuffer = "";
+    return;
+  }
+
+  if (event.key.length !== 1) return;
+
+  typedBuffer = (typedBuffer + event.key.toLowerCase()).slice(-EASTER_EGG_WORD.length);
+  if (typedBuffer !== EASTER_EGG_WORD) return;
+
+  const origin = getCaretViewportPosition(event.target) || lastPointerPos;
+  spawnPoopBurst(origin.x, origin.y);
+  typedBuffer = "";
+}, true);
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".notebook-wrapper")) {
+    notebookPanel.classList.add("hidden");
+  }
+});
+
+window.addEventListener("resize", resizePoopCanvas);
+resizePoopCanvas();
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 document.querySelectorAll(".tab").forEach((btn) => {
@@ -339,30 +418,13 @@ copyBtn.addEventListener("click", () => {
 });
 
 // ── Spectrum tape-load overlay ────────────────────────────────────────────────
-// A single scanline reveals the viewport and the modal together.
-// Progress advances with actual startup stages and completes when the portal is ready.
+// Modal-only loading state. No scanline or border frame.
 
-let scanProgress  = 0;
-let scanTarget    = 0;
-let scanAnimId    = null;
-let lastTimestamp = null;
 let dotsTimer     = null;
-
-const SCAN_CATCHUP_SPEED = 140;
-const SCAN_MIN_SPEED = 24;
 
 function startSpectrumOverlay() {
   const overlay = $("spectrum-overlay");
-  const screenCurtain = $("sov-screen-curtain");
-  const screenScanner = $("sov-screen-scanner");
-  const curtain = $("sov-curtain");
-  const scanner = $("sov-scanner");
-
-  scanProgress  = 0;
-  scanTarget    = 6;
-  lastTimestamp = null;
   clearInterval(dotsTimer);
-  cancelAnimationFrame(scanAnimId);
 
   // Reset modal content
   $("sov-art").textContent = "";
@@ -374,12 +436,6 @@ function startSpectrumOverlay() {
   overlay.classList.add("active");
   overlay.classList.remove("done");
   $("sov-loading").classList.remove("hidden");
-  screenCurtain.style.top = "0px";
-  screenScanner.style.top = "0px";
-  screenScanner.style.display = "";
-  curtain.style.top = "0px";
-  scanner.style.top = "0px";
-  scanner.style.display = "none";
 
   // Animate the dots
   let dotCount = 3;
@@ -387,46 +443,20 @@ function startSpectrumOverlay() {
     dotCount = dotCount === 3 ? 1 : dotCount + 1;
     $("sov-dots").textContent = ".".repeat(dotCount);
   }, 400);
-
-  function tick(ts) {
-    if (!lastTimestamp) lastTimestamp = ts;
-    const dt = Math.min((ts - lastTimestamp) / 1000, 0.1);
-    lastTimestamp = ts;
-
-    const delta = Math.max(0, scanTarget - scanProgress);
-    const speed = Math.max(SCAN_MIN_SPEED, delta * 3, SCAN_CATCHUP_SPEED * 0.2);
-    scanProgress = Math.min(scanProgress + Math.min(delta, speed * dt), scanTarget);
-
-    const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
-    const scanPx = (scanProgress / 100) * viewportH;
-    const scanlineHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--scanline-height")) || 18;
-    const modalRect = $("sov-modal").getBoundingClientRect();
-    const modalReveal = Math.max(0, Math.min(modalRect.height, scanPx - modalRect.top));
-    const modalLine = scanPx - modalRect.top;
-    const modalScannerActive = modalLine >= 0 && modalLine <= modalRect.height + scanlineHeight;
-
-    screenCurtain.style.top = `${scanPx}px`;
-    screenScanner.style.top = `${Math.max(0, scanPx - scanlineHeight)}px`;
-
-    curtain.style.top = `${modalReveal}px`;
-    scanner.style.top = `${Math.max(0, Math.min(modalRect.height - scanlineHeight, modalReveal - scanlineHeight))}px`;
-    scanner.style.display = modalScannerActive ? "" : "none";
-
-    if (scanProgress < 100) {
-      scanAnimId = requestAnimationFrame(tick);
-    } else {
-      screenScanner.style.display = "none";
-      scanner.style.display = "none";
-      $("spectrum-overlay").classList.add("done");
-    }
-  }
-
-  scanAnimId = requestAnimationFrame(tick);
 }
 
-function advanceSpectrumOverlay(progress) {
-  scanTarget = Math.max(scanTarget, Math.min(progress, 100));
+function hideSpectrumOverlay() {
+  const overlay = $("spectrum-overlay");
+  overlay.style.transition = "opacity 0.3s";
+  overlay.style.opacity = "0";
+  setTimeout(() => {
+    overlay.classList.remove("active");
+    overlay.style.opacity = "";
+    overlay.style.transition = "";
+  }, 300);
 }
+
+function advanceSpectrumOverlay() {}
 
 function completeSpectrumOverlay(url, routeCount, isWebhook) {
   clearInterval(dotsTimer);
@@ -455,8 +485,6 @@ function completeSpectrumOverlay(url, routeCount, isWebhook) {
   $("sov-url-row").classList.remove("hidden");
   $("sov-actions").classList.remove("hidden");
 
-  advanceSpectrumOverlay(100);
-
   // Copy button inside modal
   $("sov-copy").onclick = () => {
     navigator.clipboard.writeText(url);
@@ -466,14 +494,7 @@ function completeSpectrumOverlay(url, routeCount, isWebhook) {
 }
 
 $("sov-dismiss").addEventListener("click", () => {
-  const overlay = $("spectrum-overlay");
-  overlay.style.transition = "opacity 0.3s";
-  overlay.style.opacity    = "0";
-  setTimeout(() => {
-    overlay.classList.remove("active");
-    overlay.style.opacity   = "";
-    overlay.style.transition = "";
-  }, 300);
+  hideSpectrumOverlay();
 });
 
 // ── Start server ──────────────────────────────────────────────────────────────
@@ -482,6 +503,7 @@ startBtn.addEventListener("click", start);
 async function start() {
   startBtn.disabled = true;
   setStatus("Booting...", "loading");
+  portalCard.classList.add("hidden");
   startSpectrumOverlay();
 
   const pod = await BrowserPod.boot({ apiKey: import.meta.env.VITE_BP_APIKEY });
@@ -496,15 +518,15 @@ async function start() {
     const routeCount = getRoutes().length;
     completeSpectrumOverlay(url, routeCount, isWebhook);
     setStatus("Running", "running");
+    saveNotebookUrl(url);
     portalUrlEl.textContent = url;
     openBtn.href = url;
     if (isWebhook) {
       exampleRoute.textContent = url + "/webhook";
     } else {
       const first = getRoutes()[0];
-      if (first) exampleRoute.textContent = url + first.path;
+    if (first) exampleRoute.textContent = url + first.path;
     }
-    portalCard.classList.remove("hidden");
   });
 
   await pod.createDirectory("/project");
@@ -566,6 +588,288 @@ function esc(s) {
     .replace(/>/g, "&gt;");
 }
 
+function loadAmbiencePreference() {
+  try {
+    return window.localStorage.getItem(AMBIENCE_STORAGE_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
+function persistAmbiencePreference() {
+  try {
+    window.localStorage.setItem(AMBIENCE_STORAGE_KEY, ambienceEnabled ? "on" : "off");
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function syncAmbienceButton() {
+  $("toggle-ambience-btn").textContent = ambienceEnabled ? "SEA SOUND: ON" : "SEA SOUND: OFF";
+}
+
+async function setAmbienceEnabled(enabled) {
+  ambienceEnabled = enabled;
+  ambienceArmed = enabled;
+  persistAmbiencePreference();
+  syncAmbienceButton();
+
+  if (!enabled) {
+    ambiencePlayPending = false;
+    ambienceAudio.pause();
+    ambienceAudio.currentTime = 0;
+    return;
+  }
+
+  await tryStartAmbience();
+}
+
+async function tryStartAmbience() {
+  if (!ambienceEnabled || ambiencePlayPending || !ambienceAudio.paused) {
+    return;
+  }
+
+  ambiencePlayPending = true;
+  try {
+    await ambienceAudio.play();
+    ambienceArmed = false;
+  } catch {
+    // If autoplay is blocked or a play is interrupted, keep it armed for the next gesture.
+    ambienceArmed = true;
+  } finally {
+    ambiencePlayPending = false;
+  }
+}
+
+function armAmbiencePlayback() {
+  if (!ambienceArmed || !ambienceEnabled) return;
+  void tryStartAmbience();
+}
+
+function loadNotebookEntries() {
+  try {
+    const raw = window.localStorage.getItem(NOTEBOOK_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((entry) => typeof entry === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistNotebookEntries() {
+  try {
+    window.localStorage.setItem(NOTEBOOK_STORAGE_KEY, JSON.stringify(notebookEntries));
+  } catch {
+    // Ignore storage failures; notebook can still work for the session.
+  }
+}
+
+function renderNotebook() {
+  notebookList.innerHTML = notebookEntries
+    .map((url) => `<li><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></li>`)
+    .join("");
+  notebookEmpty.classList.toggle("hidden", notebookEntries.length > 0);
+}
+
+function saveNotebookUrl(url) {
+  if (!url) return;
+  notebookEntries = [url, ...notebookEntries.filter((entry) => entry !== url)];
+  persistNotebookEntries();
+  renderNotebook();
+}
+
+function getTextBeforeCaret(target) {
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    if (typeof target.selectionStart !== "number") return "";
+    return target.value.slice(0, target.selectionStart);
+  }
+
+  if (target?.isContentEditable) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return "";
+    const range = selection.getRangeAt(0).cloneRange();
+    range.selectNodeContents(target);
+    range.setEnd(selection.anchorNode, selection.anchorOffset);
+    return range.toString();
+  }
+
+  return "";
+}
+
+function getCaretViewportPosition(target) {
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    return getTextInputCaretPosition(target);
+  }
+
+  if (target?.isContentEditable) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    const range = selection.getRangeAt(0).cloneRange();
+    range.collapse(true);
+    const rect = range.getClientRects()[0] || range.getBoundingClientRect();
+    if (!rect) return null;
+    return { x: rect.left, y: rect.top + rect.height * 0.5 };
+  }
+
+  return null;
+}
+
+function getTextInputCaretPosition(input) {
+  if (typeof input.selectionStart !== "number") return null;
+
+  const style = window.getComputedStyle(input);
+  const mirror = document.createElement("div");
+  const marker = document.createElement("span");
+  const inputRect = input.getBoundingClientRect();
+  const before = input.value.slice(0, input.selectionStart);
+  const after = input.value.slice(input.selectionStart) || ".";
+
+  mirror.style.position = "fixed";
+  mirror.style.left = "-9999px";
+  mirror.style.top = "0";
+  mirror.style.whiteSpace = input instanceof HTMLTextAreaElement ? "pre-wrap" : "pre";
+  mirror.style.wordWrap = "break-word";
+  mirror.style.visibility = "hidden";
+  mirror.style.font = style.font;
+  mirror.style.letterSpacing = style.letterSpacing;
+  mirror.style.textTransform = style.textTransform;
+  mirror.style.padding = style.padding;
+  mirror.style.border = style.border;
+  mirror.style.boxSizing = style.boxSizing;
+  mirror.style.width = `${input.clientWidth}px`;
+  mirror.style.lineHeight = style.lineHeight;
+
+  mirror.textContent = before;
+  marker.textContent = after[0];
+  mirror.appendChild(marker);
+  document.body.appendChild(mirror);
+
+  const mirrorRect = mirror.getBoundingClientRect();
+  const markerRect = marker.getBoundingClientRect();
+  document.body.removeChild(mirror);
+
+  return {
+    x: inputRect.left + (markerRect.left - mirrorRect.left),
+    y: inputRect.top + (markerRect.top - mirrorRect.top) + parseFloat(style.fontSize || "16") * 0.5 - input.scrollTop,
+  };
+}
+
+function spawnPoopBurst(x, y) {
+  const count = 84;
+
+  for (let i = 0; i < count; i++) {
+    const angle = (-Math.PI / 2) + ((i / (count - 1)) - 0.5) * 1.95;
+    const speed = 260 + Math.random() * 260;
+    poopParticles.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - (40 + Math.random() * 120),
+      gravity: 220 + Math.random() * 80,
+      rotation: (Math.random() - 0.5) * 0.9,
+      spin: (Math.random() - 0.5) * 3.8,
+      size: 28 + Math.random() * 18,
+      life: 0,
+      ttl: 2200 + Math.random() * 700,
+      alpha: 1,
+    });
+  }
+
+  if (!poopAnimId) {
+    lastPoopFrame = performance.now();
+    poopAnimId = requestAnimationFrame(stepPoopParticles);
+  }
+}
+
+function resizePoopCanvas() {
+  if (!poopCanvas || !poopCtx) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  poopCanvas.width = Math.floor(window.innerWidth * dpr);
+  poopCanvas.height = Math.floor(window.innerHeight * dpr);
+  poopCanvas.style.width = `${window.innerWidth}px`;
+  poopCanvas.style.height = `${window.innerHeight}px`;
+  poopCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  poopCtx.textAlign = "center";
+  poopCtx.textBaseline = "middle";
+}
+
+function stepPoopParticles(now) {
+  if (!poopCtx || !poopCanvas) return;
+
+  const dt = Math.min((now - lastPoopFrame) / 1000, 0.033);
+  lastPoopFrame = now;
+
+  poopCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+  poopParticles = poopParticles.filter((particle) => {
+    particle.life += dt * 1000;
+    particle.vy += particle.gravity * dt;
+    particle.x += particle.vx * dt;
+    particle.y += particle.vy * dt;
+    particle.rotation += particle.spin * dt;
+
+    const progress = particle.life / particle.ttl;
+    if (progress >= 1) return false;
+
+    particle.alpha = progress < 0.82 ? 1 : 1 - ((progress - 0.82) / 0.18);
+
+    poopCtx.save();
+    poopCtx.globalAlpha = Math.max(0, particle.alpha);
+    poopCtx.translate(particle.x, particle.y);
+    poopCtx.rotate(particle.rotation);
+    poopCtx.font = `${particle.size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    poopCtx.fillText("💩", 0, 0);
+    poopCtx.restore();
+    return true;
+  });
+
+  if (poopParticles.length) {
+    poopAnimId = requestAnimationFrame(stepPoopParticles);
+  } else {
+    poopAnimId = null;
+    poopCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  }
+}
+
+// ── Draggable windows ─────────────────────────────────────────────────────────
+function makeDraggable(card, handle) {
+  handle.addEventListener("mousedown", (e) => {
+    if (e.target.closest("button, a, input, select, textarea")) return;
+    e.preventDefault();
+    const rect = card.getBoundingClientRect();
+    card.style.left      = rect.left + "px";
+    card.style.top       = rect.top  + "px";
+    card.style.right     = "auto";
+    card.style.bottom    = "auto";
+    card.style.transform = "none";
+    const startX = e.clientX - rect.left;
+    const startY = e.clientY - rect.top;
+    handle.style.cursor = "grabbing";
+    document.body.style.userSelect = "none";
+    function onMove(e) {
+      card.style.left = (e.clientX - startX) + "px";
+      card.style.top  = (e.clientY - startY) + "px";
+    }
+    function onUp() {
+      handle.style.cursor = "grab";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup",   onUp);
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup",   onUp);
+  });
+}
+
+makeDraggable(bodyEditorCard, bodyEditorCard.querySelector(".section-header"));
+makeDraggable(portalCard,     portalCard.querySelector(".portal-label"));
+makeDraggable(asciiSuccess,   asciiSuccess);
+makeDraggable(consoleCard,    consoleCard.querySelector(".terminal-label"));
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 renderRoutes();
 renderSpecEndpoints();
+renderNotebook();
+syncAmbienceButton();

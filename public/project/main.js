@@ -37,16 +37,21 @@ app.get("/", function (req, res) {
 
   res.setHeader("Content-Type", "text/html");
   res.end(
-    "<!DOCTYPE html><html><head><meta charset='utf-8'/><title>API Mock Server</title>" +
-    "<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,sans-serif;background:#0d1117;color:#e6edf3;padding:24px}" +
-    "h1{font-size:18px;font-weight:600;margin-bottom:4px}.sub{color:#8b949e;font-size:13px;margin-bottom:20px}" +
-    "table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 12px;border-bottom:1px solid #21262d}" +
+    "<!DOCTYPE html><html><head><meta charset='utf-8'/><title>General Hook</title>" +
+    "<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:monospace;background:#020304;color:#f5f2ea;padding:24px}" +
+    ".shell{max-width:1040px;margin:0 auto;border:2px solid #ede6d8;background:#050505;box-shadow:6px 6px 0 #1e0e06}" +
+    ".head{padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.08)}" +
+    "h1{font-size:28px;line-height:1.1;color:#24e3ef;margin-bottom:8px;text-transform:uppercase}" +
+    ".sub{color:#ffd200;font-size:14px;margin-bottom:6px}.meta{color:#6f6a63;font-size:12px}" +
+    ".table-wrap{padding:0 20px 20px}table{width:100%;border-collapse:collapse}" +
+    "th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #21262d}" +
     "th{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#8b949e}" +
+    "pre{font-size:12px;white-space:pre-wrap;word-break:break-all;color:#00ff8c}" +
     "</style></head><body>" +
-    "<h1>API Mock Server</h1><p class='sub'>Running in a browser tab via BrowserPod. " + routes.length + " route(s) registered.</p>" +
-    "<table><thead><tr><th>Method</th><th>Path</th><th>Status</th><th>Response</th></tr></thead><tbody>" +
+    "<div class='shell'><div class='head'><h1>General Hook</h1><p class='sub'>Mock API routes</p><p class='meta'>" + routes.length + " route(s) active</p></div>" +
+    "<div class='table-wrap'><table><thead><tr><th>Method</th><th>Path</th><th>Status</th><th>Response</th></tr></thead><tbody>" +
     rows +
-    "</tbody></table></body></html>"
+    "</tbody></table></div></div></body></html>"
   );
 });
 

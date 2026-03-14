@@ -71,13 +71,16 @@ var DASHBOARD = '<!DOCTYPE html>' +
 '<head>' +
 '<meta charset="utf-8"/>' +
 '<meta name="viewport" content="width=device-width,initial-scale=1"/>' +
-'<title>Webhook Receiver</title>' +
+'<title>General Hook</title>' +
 '<style>' +
 '*{box-sizing:border-box;margin:0;padding:0}' +
-'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",monospace;background:#0d1117;color:#e6edf3;padding:24px}' +
-'h1{font-size:18px;font-weight:600;margin-bottom:4px}' +
-'.sub{color:#8b949e;font-size:13px;margin-bottom:20px}' +
-'.count{display:inline-block;background:#21262d;border:1px solid #30363d;border-radius:20px;padding:2px 10px;font-size:11px;margin-left:8px;vertical-align:middle}' +
+'body{font-family:monospace;background:#020304;color:#f5f2ea;padding:24px}' +
+'.shell{max-width:1040px;margin:0 auto;border:2px solid #ede6d8;background:#050505;box-shadow:6px 6px 0 #1e0e06}' +
+'.head{padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.08)}' +
+'h1{font-size:28px;line-height:1.1;color:#24e3ef;margin-bottom:8px;text-transform:uppercase}' +
+'.sub{color:#ffd200;font-size:14px;margin-bottom:6px}' +
+'.count{display:inline-block;background:#111;border:1px solid #30363d;border-radius:20px;padding:2px 10px;font-size:11px;margin-left:8px;vertical-align:middle;color:#8b949e}' +
+'.content{padding:20px}' +
 '.empty{color:#8b949e;text-align:center;padding:48px;border:1px dashed #30363d;border-radius:8px;font-size:14px}' +
 '.wh{border:1px solid #30363d;border-radius:8px;margin-bottom:12px;overflow:hidden}' +
 '.wh-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#161b22}' +
@@ -94,9 +97,8 @@ var DASHBOARD = '<!DOCTYPE html>' +
 '</style>' +
 '</head>' +
 '<body>' +
-'<h1>Webhook Receiver <span class="count" id="count">0 received</span></h1>' +
-'<p class="sub">POST to any path on this server to capture it here. Refreshes automatically.</p>' +
-'<div id="list"></div>' +
+'<div class="shell"><div class="head"><h1>General Hook <span class="count" id="count">0 received</span></h1>' +
+'<p class="sub">Webhook capture</p></div><div class="content"><div id="list"></div></div></div>' +
 '<script>' +
 'var lastCount=-1;' +
 'function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}' +
