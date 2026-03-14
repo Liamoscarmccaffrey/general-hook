@@ -10,22 +10,15 @@ import {
 // ── State ────────────────────────────────────────────────────────────────────
 let currentTab = "builder";
 
-let routes = [
-  { method: "GET",  path: "/users",  status: 200, body: [{ id: 1, name: "Alice" }, { id: 2, name: "Bob" }] },
-  { method: "POST", path: "/users",  status: 201, body: { id: 3, name: "New User", created: true } },
-  { method: "GET",  path: "/health", status: 200, body: { status: "ok" } },
-];
+let routes = [];
 
 let uploadMode = null;           // 'routes' | 'openapi' | 'raw'
 let uploadedRawContent = null;
 
 let editingTarget = null;        // { arr, index }
 
-const specInfo = { title: "My API", version: "1.0.0" };
-let specEndpoints = [
-  { method: "GET",  path: "/users", status: 200, summary: "List users",  body: [{ id: 1, name: "Alice" }] },
-  { method: "POST", path: "/users", status: 201, summary: "Create user", body: { id: 3, name: "New User" } },
-];
+const specInfo = { title: "", version: "" };
+let specEndpoints = [];
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -306,8 +299,8 @@ function renderSpecEndpoints() {
 }
 
 function refreshSpecPreview() {
-  specInfo.title   = $("spec-title").value   || "My API";
-  specInfo.version = $("spec-version").value || "1.0.0";
+  specInfo.title   = $("spec-title").value.trim();
+  specInfo.version = $("spec-version").value.trim();
   const spec = buildOpenApiSpec(specInfo, specEndpoints);
   const yamlStr = specToYaml(spec);
   $("spec-preview").textContent = yamlStr;

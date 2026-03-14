@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
-  <body>
+  <body class="scene-page">
     <div id="starfield" aria-hidden="true"></div>
     <canvas id="poop-canvas" aria-hidden="true"></canvas>
     <div class="app">
@@ -117,8 +117,8 @@
                 <div class="spec-two-col">
                   <div class="spec-left">
                     <div class="spec-info-row">
-                      <input class="input spec-input-title" id="spec-title" type="text" placeholder="API TITLE" value="My API" />
-                      <input class="input spec-input-version" id="spec-version" type="text" placeholder="VERSION" value="1.0.0" />
+                      <input class="input spec-input-title" id="spec-title" type="text" placeholder="API TITLE" />
+                      <input class="input spec-input-version" id="spec-version" type="text" placeholder="VERSION" />
                     </div>
                     <div class="section-header" style="margin-top:14px">
                       <span class="section-title">ENDPOINTS</span>
@@ -139,7 +139,6 @@
                   </div>
                   <div class="spec-right">
                     <div class="spec-preview-header">
-                      <span class="spec-preview-label">OPENAPI YAML</span>
                       <button class="btn-ghost" id="spec-copy-btn">COPY</button>
                       <a class="btn-ghost" id="spec-download-btn" href="#" download="openapi.yaml">DOWNLOAD</a>
                     </div>
@@ -241,7 +240,7 @@
     </div>
 
     <canvas id="water-canvas"></canvas>
-    <img class="boat-img" src="/public/pixel_boat_detailed.svg" alt="" aria-hidden="true" />
+    <img class="boat-img" src="/pixel_boat_detailed.svg" alt="" aria-hidden="true" />
     <script src="/src/stars.js"></script>
     <script src="/src/water.js"></script>
     <script type="module" src="/src/main.js"></script>

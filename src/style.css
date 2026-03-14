@@ -64,7 +64,7 @@ body {
 }
 
 /* Moon */
-body::before {
+body.scene-page::before {
   content: "";
   position: fixed;
   top: 186px;
@@ -80,7 +80,7 @@ body::before {
   z-index: 2;
 }
 
-body::after {
+body.scene-page::after {
   content: "";
   position: fixed;
   top: 146px;
@@ -491,8 +491,8 @@ body::after {
   cursor: pointer;
 }
 .tab:last-child { border-right: 0; }
-.tab:hover { color: #ffe4a4; background:  rgba(149, 218, 255, 0.84); }
-.tab.active { color: #ffffff; background: var(--cyan); }
+.tab:hover { color: #ffffff; background:  rgba(125, 125, 125, 0.84); }
+.tab.active { color: #000000; background: var(--cyan); }
 
 .tab-panel {
   flex: 1;
@@ -740,8 +740,8 @@ body::after {
 
 @media (max-width: 760px) {
   body { padding: 16px 12px; }
-  body::before { top: 48px; right: 30px; width: 48px; height: 48px; }
-  body::after { top: 24px; right: 2px; width: 108px; height: 108px; }
+  body.scene-page::before { top: 48px; right: 30px; width: 48px; height: 48px; }
+  body.scene-page::after { top: 24px; right: 2px; width: 108px; height: 108px; }
 
   .app-header { flex-direction: column; align-items: flex-start; gap: 12px; }
   .maker-credit { font-size: 15px; }

@@ -252,7 +252,7 @@ export function buildOpenApiSpec(info, endpoints) {
 
   return {
     openapi: "3.0.3",
-    info: { title: info.title || "My API", version: info.version || "1.0.0" },
+    info: { title: info.title || "", version: info.version || "" },
     paths,
   };
 }
