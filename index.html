@@ -3,11 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GENERAL HOOK</title>
+    <title>GENERAL HOOK — Free In-Browser Mock API Server & Webhook Inspector</title>
+    <meta name="description" content="General Hook is a free mock API server and webhook inspector that runs entirely in your browser via WebAssembly. Instantly build and test APIs, import OpenAPI or Postman specs, or capture live webhooks — no account, no backend, no setup required." />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/style.css" />
   <script>if(localStorage.getItem('general-hook:theme')==='light')document.body.classList.add('light');</script>
   </head>
@@ -30,19 +31,19 @@
               <button id="toggle-ambience-btn">SEA SOUND: OFF</button>
               <button id="toggle-terminal-btn">SEE TERMINAL</button>
               <button id="notebook-btn">NOTEBOOK</button>
-              <a href="/docs.html">DOCS</a>
+              <a href="/docs.html" target="_blank" rel="noopener">DOCS</a>
             </div>
             <div class="notebook-panel hidden" id="notebook-panel">
-              <div class="notebook-header">
+              <div class="notebook-header drag-handle">
                 <span class="notebook-title">Notebook</span>
-                <button class="notebook-close" id="notebook-close" aria-label="Close notebook">CLOSE</button>
+                <div class="notebook-actions">
+                  <button class="notebook-download" id="notebook-download">DOWNLOAD</button>
+                  <button class="notebook-close" id="notebook-close" aria-label="Close notebook">CLOSE</button>
+                </div>
               </div>
               <div class="notebook-page">
                 <div class="notebook-margin" aria-hidden="true"></div>
-                <div class="notebook-lines">
-                  <div class="notebook-empty" id="notebook-empty">No saved URLs yet.</div>
-                  <ol class="notebook-list" id="notebook-list"></ol>
-                </div>
+                <textarea class="notebook-textarea" id="notebook-textarea" placeholder="Write your notes here..." spellcheck="true"></textarea>
               </div>
             </div>
           </div>
@@ -55,14 +56,15 @@
       </div>
 
         <div class="card" id="config-card">
-            <div class="config-card-title">
+            <div class="config-card-title drag-handle">
               <div class="config-card-title-text">GENERAL HOOK</div>
               <div class="status-strip" aria-live="polite">
-                <span class="status-label">POD</span>
+                <span class="status-label" id="status-label">API</span>
                 <div id="status" class="status status-idle">
                   <span class="status-dot" aria-hidden="true"></span>
                   <span id="status-text">OFFLINE</span>
                 </div>
+                <button class="btn-view-portal hidden" id="view-portal-btn" title="View server details">&#x2139;</button>
               </div>
             </div>
             <div class="tabs">
@@ -79,7 +81,12 @@
                 </p>
                 <div class="section-header">
                   <span class="section-title">ROUTES</span>
-                  <button class="btn-ghost" id="add-btn">+ ADD</button>
+                  <div class="section-actions">
+                    <button class="btn-icon" id="download-routes-btn" title="Download routes.json">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><rect x="1" y="12" width="12" height="2"/><path d="M7 11 L1 5 H4.5 V1 H9.5 V5 H13 Z"/></svg>
+                    </button>
+                    <button class="btn-ghost" id="add-btn">+ ADD</button>
+                  </div>
                 </div>
                 <div id="routes-list"></div>
                 <div id="new-route-form" class="new-route-form hidden">
@@ -98,8 +105,6 @@
               <div class="tab-panel-inner">
                 <p class="tab-desc">
                   Upload an existing API spec or export file. Routes are extracted automatically.
-                  Supported: <strong>OpenAPI 3.x</strong>, <strong>Swagger 2.0</strong>, <strong>Postman</strong>,
-                  <strong>Insomnia</strong>, <strong>HAR</strong>, <strong>routes.json</strong>, and raw <strong>server.js</strong> files.
                 </p>
                 <div class="dropzone" id="dropzone">
                   <div class="dropzone-icon">&#x2913;</div>
@@ -118,13 +123,13 @@
                   Build an OpenAPI 3.0 spec from scratch. Add endpoints, set status codes, and edit response bodies.
                   The YAML updates live — copy or download it to share with your team or import into other tools.
                 </p>
+                <div class="spec-info-row">
+                  <input class="input spec-input-title" id="spec-title" type="text" placeholder="API TITLE" />
+                  <input class="input spec-input-version" id="spec-version" type="text" placeholder="VERSION" />
+                </div>
                 <div class="spec-two-col">
                   <div class="spec-left">
-                    <div class="spec-info-row">
-                      <input class="input spec-input-title" id="spec-title" type="text" placeholder="API TITLE" />
-                      <input class="input spec-input-version" id="spec-version" type="text" placeholder="VERSION" />
-                    </div>
-                    <div class="section-header" style="margin-top:14px">
+                    <div class="section-header">
                       <span class="section-title">ENDPOINTS</span>
                       <button class="btn-ghost" id="spec-add-btn">+ ADD</button>
                     </div>
@@ -142,9 +147,16 @@
                     </div>
                   </div>
                   <div class="spec-right">
-                    <div class="spec-preview-header">
-                      <button class="btn-ghost" id="spec-copy-btn">COPY</button>
-                      <a class="btn-ghost" id="spec-download-btn" href="#" download="openapi.yaml">DOWNLOAD</a>
+                    <div class="section-header">
+                      <span class="section-title">YAML</span>
+                      <div class="spec-preview-actions">
+                        <button class="btn-icon" id="spec-copy-btn" title="Copy YAML">
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="4" width="9" height="9"/><rect x="1" y="1" width="8" height="8" fill="var(--panel)" stroke="currentColor" stroke-width="1.5"/></svg>
+                        </button>
+                        <a class="btn-icon" id="spec-download-btn" href="#" download="openapi.yaml" title="Download YAML">
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><rect x="1" y="12" width="12" height="2"/><path d="M7 11 L1 5 H4.5 V1 H9.5 V5 H13 Z"/></svg>
+                        </a>
+                      </div>
                     </div>
                     <pre class="spec-preview" id="spec-preview"></pre>
                   </div>
@@ -164,6 +176,9 @@
                 </div>
               </div>
             </div>
+            <div class="config-hint">
+              This server runs inside this browser tab. Closing or refreshing this page will immediately stop any running API or webhook. To start a new server, refresh the tab.
+            </div>
           </div>
         </div>
 
@@ -181,12 +196,14 @@
             <option value="text/plain">text/plain</option>
             <option value="text/html">text/html</option>
             <option value="application/xml">application/xml</option>
-            <option value="image/png">image/png (base64 data URI)</option>
-            <option value="image/jpeg">image/jpeg (base64 data URI)</option>
-            <option value="application/pdf">application/pdf (base64 data URI)</option>
-            <option value="application/octet-stream">application/octet-stream (base64 data URI)</option>
+            <option value="image/png">image/png</option>
+            <option value="image/jpeg">image/jpeg</option>
+            <option value="application/pdf">application/pdf</option>
+            <option value="application/octet-stream">application/octet-stream</option>
           </select>
-          <span class="body-editor-hint" id="body-editor-hint">MUST BE VALID JSON</span>
+          <button class="btn-ghost" id="body-upload-btn">UPLOAD FILE</button>
+          <input type="file" id="body-file-input" hidden />
+          <span class="body-editor-hint" id="body-editor-hint">VALID JSON — { }, [ ], "string", 42, true</span>
         </div>
       </div>
 
@@ -245,6 +262,32 @@
 
     <canvas id="water-canvas"></canvas>
     <img class="boat-img" src="/pixel_boat_detailed.svg" alt="" aria-hidden="true" />
+
+    <!-- Welcome screen -->
+    <div id="welcome-screen">
+      <div class="welcome-card">
+        <div class="welcome-logo">GENERAL HOOK</div>
+        <p class="welcome-lead">Build and test APIs instantly — no account, no backend, no setup.</p>
+        <p class="welcome-body">
+          General Hook is a free mock API server and webhook inspector that runs entirely in your browser.
+          Define custom endpoints with JSON responses, import an OpenAPI or Postman spec, or spin up a
+          public webhook receiver to inspect live payloads — all without installing anything or creating an account.
+        </p>
+        <p class="welcome-body">
+          Powered by WebAssembly, your server runs directly inside this browser tab.
+          Nothing is sent to an external server and no data leaves your device.
+        </p>
+        <div class="welcome-notice">
+          <strong>Your server only lives as long as this tab is open.</strong>
+          Closing or refreshing this page will immediately shut down any running API or webhook.
+          To start a fresh server with a new configuration, simply refresh the tab.
+        </div>
+        <button class="btn-primary" id="welcome-start-btn">GET STARTED</button>
+      </div>
+    </div>
+
+    <!-- Toast notification -->
+    <div id="toast" role="alert"></div>
     <script type="module" src="/src/stars.js"></script>
     <script type="module" src="/src/clouds.js"></script>
     <script type="module" src="/src/water.js"></script>

@@ -38,27 +38,27 @@ const bodyEditorLabel = $("body-editor-label");
 const bodyEditorTA    = $("body-editor-textarea");
 const asciiSuccess    = $("ascii-success");
 const consoleCard     = $("console-card");
-const notebookBtn     = $("notebook-btn");
-const notebookPanel   = $("notebook-panel");
-const notebookClose   = $("notebook-close");
-const notebookList    = $("notebook-list");
-const notebookEmpty   = $("notebook-empty");
+const notebookBtn      = $("notebook-btn");
+const notebookPanel    = $("notebook-panel");
+const notebookClose    = $("notebook-close");
+const notebookTextarea = $("notebook-textarea");
+const notebookDownload = $("notebook-download");
 const poopCanvas      = $("poop-canvas");
 const poopCtx         = poopCanvas?.getContext("2d");
 const EASTER_EGG_WORD = "gracjan";
-const NOTEBOOK_STORAGE_KEY = "general-hook:notebook-urls";
+const NOTE_STORAGE_KEY     = "general-hook:notebook-note";
 const AMBIENCE_STORAGE_KEY = "general-hook:sea-ambience";
-const THEME_STORAGE_KEY = "general-hook:theme";
+const THEME_STORAGE_KEY    = "general-hook:theme";
 const themeBtn = $("theme-btn");
 let lastPointerPos = {
   x: window.innerWidth * 0.5,
   y: window.innerHeight * 0.5,
 };
+let serverState = null;
 let typedBuffer = "";
 let poopParticles = [];
 let poopAnimId = null;
 let lastPoopFrame = 0;
-let notebookEntries = loadNotebookEntries();
 let ambienceEnabled = loadAmbiencePreference();
 let ambienceArmed = ambienceEnabled;
 let ambiencePlayPending = false;
@@ -66,6 +66,23 @@ const ambienceAudio = new Audio("/audio/577424__legnalegna55__water-wave.mp3");
 ambienceAudio.loop = true;
 ambienceAudio.volume = 0.1;
 ambienceAudio.preload = "auto";
+
+// ── Welcome screen ────────────────────────────────────────────────────────────
+$("welcome-start-btn").addEventListener("click", () => {
+  const ws = $("welcome-screen");
+  ws.classList.add("fading");
+  setTimeout(() => ws.classList.add("hidden"), 350);
+});
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(message) {
+  const toast = $("toast");
+  toast.textContent = message;
+  toast.classList.add("visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("visible"), 5000);
+}
 
 // ── Settings dropdown ─────────────────────────────────────────────────────────
 let terminalVisible = false;
@@ -145,11 +162,6 @@ document.addEventListener("keydown", (event) => {
   typedBuffer = "";
 }, true);
 
-document.addEventListener("click", (event) => {
-  if (!event.target.closest(".settings-wrapper")) {
-    notebookPanel.classList.add("hidden");
-  }
-});
 
 window.addEventListener("resize", resizePoopCanvas);
 resizePoopCanvas();
@@ -157,6 +169,10 @@ resizePoopCanvas();
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 document.querySelectorAll(".tab").forEach((btn) => {
   btn.addEventListener("click", () => {
+    if (serverState) {
+      showToast(`Your ${serverState.isWebhook ? "webhook" : "API"} is live. Refresh this tab to start a new server — your current one will be stopped.`);
+      return;
+    }
     currentTab = btn.dataset.tab;
     document.querySelectorAll(".tab").forEach((t) =>
       t.classList.toggle("active", t === btn)
@@ -165,6 +181,7 @@ document.querySelectorAll(".tab").forEach((btn) => {
       p.classList.add("hidden")
     );
     $("tab-" + currentTab).classList.remove("hidden");
+    syncStatusLabel();
   });
 });
 
@@ -224,6 +241,18 @@ $("nr-save").addEventListener("click", () => {
   $("new-route-form").classList.add("hidden");
   $("nr-path").value = "";
   $("nr-status").value = "200";
+});
+
+$("download-routes-btn").addEventListener("click", () => {
+  const rts = getRoutes();
+  if (!rts.length) return;
+  const blob = new Blob([JSON.stringify(rts, null, 2)], { type: "application/json" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = "routes.json";
+  a.click();
+  URL.revokeObjectURL(url);
 });
 
 // ── Upload tab ────────────────────────────────────────────────────────────────
@@ -358,8 +387,11 @@ $("sp-save").addEventListener("click", () => {
 
 $("spec-copy-btn").addEventListener("click", () => {
   navigator.clipboard.writeText($("spec-preview").textContent);
-  $("spec-copy-btn").textContent = "COPIED!";
-  setTimeout(() => { $("spec-copy-btn").textContent = "COPY"; }, 2000);
+  const btn = $("spec-copy-btn");
+  const orig = btn.innerHTML;
+  btn.innerHTML = "✓";
+  btn.style.color = "var(--green)";
+  setTimeout(() => { btn.innerHTML = orig; btn.style.color = ""; }, 2000);
 });
 
 // ── Body editor ───────────────────────────────────────────────────────────────
@@ -406,16 +438,37 @@ $("body-editor-close").addEventListener("click", () => {
   editingTarget = null;
 });
 
-$("body-editor-ct").addEventListener("change", () => {
+$("body-editor-ct").addEventListener("change", syncBodyEditorHint);
+
+function syncBodyEditorHint() {
   const ct   = $("body-editor-ct").value;
   const hint = $("body-editor-hint");
   if (ct === "application/json") {
-    hint.textContent = "MUST BE VALID JSON";
+    hint.textContent = 'VALID JSON — { }, [ ], "string", 42, true';
   } else if (ct.startsWith("image/") || ct === "application/pdf" || ct === "application/octet-stream") {
-    hint.textContent = "PASTE A data:...;base64,... URI";
+    hint.textContent = "BINARY — use UPLOAD FILE to load from disk";
   } else {
     hint.textContent = "PLAIN TEXT OR MARKUP";
   }
+}
+
+$("body-upload-btn").addEventListener("click", () => $("body-file-input").click());
+
+$("body-file-input").addEventListener("change", () => {
+  const file = $("body-file-input").files[0];
+  if (!file) return;
+
+  const ctSelect = $("body-editor-ct");
+  if      (file.type === "image/png")             ctSelect.value = "image/png";
+  else if (file.type === "image/jpeg")            ctSelect.value = "image/jpeg";
+  else if (file.type === "application/pdf")       ctSelect.value = "application/pdf";
+  else                                            ctSelect.value = "application/octet-stream";
+  syncBodyEditorHint();
+
+  const reader = new FileReader();
+  reader.onload = (e) => { bodyEditorTA.value = e.target.result; };
+  reader.readAsDataURL(file);
+  $("body-file-input").value = "";
 });
 
 // ── Copy / open portal ────────────────────────────────────────────────────────
@@ -511,7 +564,8 @@ startBtn.addEventListener("click", start);
 
 async function start() {
   startBtn.disabled = true;
-  setStatus("Booting...", "loading");
+  const isWebhook = currentTab === "webhooks";
+  setStatus(isWebhook ? "Booting Webhook..." : "Booting API...", "loading");
   portalCard.classList.add("hidden");
   startSpectrumOverlay();
 
@@ -521,11 +575,13 @@ async function start() {
   const terminal = await pod.createDefaultTerminal(consoleEl);
 
   pod.onPortal(({ url }) => {
-    const isWebhook  = currentTab === "webhooks";
     const routeCount = getRoutes().length;
+    serverState = { url, routeCount, isWebhook };
     completeSpectrumOverlay(url, routeCount, isWebhook);
-    setStatus("Running", "running");
-    saveNotebookUrl(url);
+    setStatus(isWebhook ? "Webhook Live" : "API Running", "running");
+    startBtn.textContent = "RUNNING";
+    document.querySelector(".tabs").classList.add("locked");
+    $("view-portal-btn").classList.remove("hidden");
     portalUrlEl.textContent = url;
     openBtn.href = url;
     if (isWebhook) {
@@ -539,27 +595,26 @@ async function start() {
   await pod.createDirectory("/project");
 
   const isRaw = currentTab === "upload" && uploadMode === "raw";
-  const isWebhook = currentTab === "webhooks";
 
   if (isWebhook) {
     await copyFileTo(pod, "webhook/main.js", "/project/main.js");
     await copyFileTo(pod, "webhook/package.json", "/project/package.json");
-    setStatus("Installing...", "loading");
+    setStatus("Installing Webhook...", "loading");
     await pod.run("npm", ["install"], { echo: true, terminal, cwd: "/project" });
-    setStatus("Starting...", "loading");
+    setStatus("Starting Webhook...", "loading");
     pod.run("node", ["main.js"], { echo: true, terminal, cwd: "/project" });
   } else if (isRaw) {
     await writeTextFile(pod, "/project/raw-server.js", uploadedRawContent);
     await copyFile(pod, "project/package.json");
-    setStatus("Starting...", "loading");
+    setStatus("Starting API...", "loading");
     pod.run("node", ["raw-server.js"], { echo: true, terminal, cwd: "/project" });
   } else {
     await copyFile(pod, "project/main.js");
     await copyFile(pod, "project/package.json");
     await writeTextFile(pod, "/project/routes.json", JSON.stringify(getRoutes()));
-    setStatus("Installing...", "loading");
+    setStatus("Installing API...", "loading");
     await pod.run("npm", ["install"], { echo: true, terminal, cwd: "/project" });
-    setStatus("Starting...", "loading");
+    setStatus("Starting API...", "loading");
     pod.run("node", ["main.js"], { echo: true, terminal, cwd: "/project" });
   }
 }
@@ -574,6 +629,16 @@ function setStatus(text, state) {
   statusTextEl.textContent = text;
   statusEl.className = "status status-" + state;
 }
+
+function syncStatusLabel() {
+  $("status-label").textContent = currentTab === "webhooks" ? "WEBHOOK" : "API";
+}
+
+$("view-portal-btn").addEventListener("click", () => {
+  if (!serverState) return;
+  startSpectrumOverlay();
+  completeSpectrumOverlay(serverState.url, serverState.routeCount, serverState.isWebhook);
+});
 
 function methodCls(m) {
   return ["GET", "POST", "PUT", "PATCH", "DELETE"].includes(m) ? m : "GET";
@@ -644,38 +709,32 @@ function armAmbiencePlayback() {
   void tryStartAmbience();
 }
 
-function loadNotebookEntries() {
+function loadNotebookNote() {
   try {
-    const raw = window.localStorage.getItem(NOTEBOOK_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((entry) => typeof entry === "string") : [];
+    return window.localStorage.getItem(NOTE_STORAGE_KEY) ?? "";
   } catch {
-    return [];
+    return "";
   }
 }
 
-function persistNotebookEntries() {
+notebookTextarea.addEventListener("input", () => {
   try {
-    window.localStorage.setItem(NOTEBOOK_STORAGE_KEY, JSON.stringify(notebookEntries));
+    window.localStorage.setItem(NOTE_STORAGE_KEY, notebookTextarea.value);
   } catch {
-    // Ignore storage failures; notebook can still work for the session.
+    // Ignore storage failures.
   }
-}
+});
 
-function renderNotebook() {
-  notebookList.innerHTML = notebookEntries
-    .map((url) => `<li><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></li>`)
-    .join("");
-  notebookEmpty.classList.toggle("hidden", notebookEntries.length > 0);
-}
-
-function saveNotebookUrl(url) {
-  if (!url) return;
-  notebookEntries = [url, ...notebookEntries.filter((entry) => entry !== url)];
-  persistNotebookEntries();
-  renderNotebook();
-}
+notebookDownload.addEventListener("click", () => {
+  const text = notebookTextarea.value;
+  const blob = new Blob([text], { type: "text/plain" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = "notebook.txt";
+  a.click();
+  URL.revokeObjectURL(url);
+});
 
 function getCaretViewportPosition(target) {
   if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
@@ -819,6 +878,13 @@ function makeDraggable(card, handle) {
     if (e.target.closest("button, a, input, select, textarea")) return;
     e.preventDefault();
     const rect = card.getBoundingClientRect();
+    // Detach from document flow on first drag
+    if (getComputedStyle(card).position !== "fixed") {
+      card.style.position = "fixed";
+      card.style.width    = rect.width + "px";
+      card.style.zIndex   = "10";
+      card.style.margin   = "0";
+    }
     card.style.left      = rect.left + "px";
     card.style.top       = rect.top  + "px";
     card.style.right     = "auto";
@@ -843,13 +909,23 @@ function makeDraggable(card, handle) {
   });
 }
 
-makeDraggable(bodyEditorCard, bodyEditorCard.querySelector(".section-header"));
-makeDraggable(portalCard,     portalCard.querySelector(".portal-label"));
-makeDraggable(asciiSuccess,   asciiSuccess);
-makeDraggable(consoleCard,    consoleCard.querySelector(".terminal-label"));
+makeDraggable($("config-card"),   $("config-card").querySelector(".config-card-title"));
+makeDraggable(bodyEditorCard,     bodyEditorCard.querySelector(".section-header"));
+makeDraggable(portalCard,         portalCard.querySelector(".portal-label"));
+makeDraggable(asciiSuccess,       asciiSuccess);
+makeDraggable(consoleCard,        consoleCard.querySelector(".terminal-label"));
+makeDraggable(notebookPanel,      notebookPanel.querySelector(".notebook-header"));
+
+// ── Page close warning ────────────────────────────────────────────────────────
+window.addEventListener("beforeunload", (e) => {
+  if (serverState) {
+    e.preventDefault();
+  }
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 renderRoutes();
 renderSpecEndpoints();
-renderNotebook();
+notebookTextarea.value = loadNotebookNote();
+syncStatusLabel();
 syncAmbienceButton();
