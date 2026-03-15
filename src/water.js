@@ -54,37 +54,14 @@
     }
   }
 
-  function getSpringHeightAtX(x) {
-    if (!springs.length) return HEIGHT;
-
-    const index = Math.max(0, Math.min(springs.length - 1, Math.round(x / WAVE_FREQ)));
-    return springs[index].height;
-  }
-
-  function getAverageHeightBetween(startX, endX, samples) {
-    if (!springs.length) return HEIGHT;
-
-    let total = 0;
-    for (let i = 0; i < samples; i++) {
-      const t = samples === 1 ? 0.5 : i / (samples - 1);
-      const sampleX = startX + (endX - startX) * t;
-      total += getSpringHeightAtX(sampleX);
-    }
-
-    return total / samples;
-  }
-
   function updateBoatMotion(time) {
     if (!boat) return;
 
-    const idleBob = Math.sin(time / 2600) * 1.2;
+    const idleBob  = Math.sin(time / 2600) * 1.2;
     const idleTilt = Math.sin(time / 3400) * 0.42;
 
-    const bobTarget = idleBob;
-    const tiltTarget = idleTilt;
-
-    boatBob += (bobTarget - boatBob) * 0.05;
-    boatTilt += (tiltTarget - boatTilt) * 0.05;
+    boatBob  += (idleBob  - boatBob)  * 0.05;
+    boatTilt += (idleTilt - boatTilt) * 0.05;
 
     boatBob = Math.max(-4, Math.min(4, boatBob));
     boatTilt = Math.max(-0.7, Math.min(0.7, boatTilt));
@@ -143,11 +120,19 @@
 
   function connectSprings(vOne, vTwo) {
     const topY = Math.min(vOne.height, vTwo.height);
+    const isLight = document.body.classList.contains('light');
     const grd  = context.createLinearGradient(0, topY, 0, END_Y);
-    grd.addColorStop(0,    'rgba(10, 42, 80, 0.88)');
-    grd.addColorStop(0.25, 'rgba(7,  28, 55, 0.93)');
-    grd.addColorStop(0.6,  'rgba(4,  16, 32, 0.97)');
-    grd.addColorStop(1,    'rgba(2,   8, 16, 0.99)');
+    if (isLight) {
+      grd.addColorStop(0,    'rgba(35, 118, 200, 0.90)');
+      grd.addColorStop(0.25, 'rgba(25,  90, 165, 0.94)');
+      grd.addColorStop(0.6,  'rgba(15,  62, 128, 0.97)');
+      grd.addColorStop(1,    'rgba( 8,  40,  90, 0.99)');
+    } else {
+      grd.addColorStop(0,    'rgba(10, 42, 80, 0.88)');
+      grd.addColorStop(0.25, 'rgba(7,  28, 55, 0.93)');
+      grd.addColorStop(0.6,  'rgba(4,  16, 32, 0.97)');
+      grd.addColorStop(1,    'rgba(2,   8, 16, 0.99)');
+    }
 
     context.fillStyle = grd;
     context.beginPath();
@@ -165,8 +150,9 @@
     }
 
     // Soft cap so the water body reads as moving, not just the line.
+    const isLightMode = document.body.classList.contains('light');
     context.save();
-    context.fillStyle = 'rgba(22, 96, 138, 0.28)';
+    context.fillStyle = isLightMode ? 'rgba(80, 170, 240, 0.32)' : 'rgba(22, 96, 138, 0.28)';
     context.beginPath();
     for (let i = 0; i < springs.length; i++) {
       const y = springs[i].height;
@@ -197,7 +183,9 @@
 
     // Surface shimmer
     context.save();
-    context.strokeStyle = 'rgba(36, 227, 239, 0.32)';
+    context.strokeStyle = document.body.classList.contains('light')
+      ? 'rgba(120, 210, 255, 0.55)'
+      : 'rgba(36, 227, 239, 0.32)';
     context.lineWidth   = 1.8;
     context.beginPath();
     for (let i = 0; i < springs.length; i++) {

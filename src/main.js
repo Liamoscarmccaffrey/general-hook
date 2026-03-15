@@ -19,6 +19,7 @@ let editingTarget = null;        // { arr, index }
 
 const specInfo = { title: "", version: "" };
 let specEndpoints = [];
+let specBlobUrl = null;
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -36,7 +37,6 @@ const bodyEditorCard  = $("body-editor-card");
 const bodyEditorLabel = $("body-editor-label");
 const bodyEditorTA    = $("body-editor-textarea");
 const asciiSuccess    = $("ascii-success");
-const asciiArtText    = $("ascii-art-text");
 const consoleCard     = $("console-card");
 const notebookBtn     = $("notebook-btn");
 const notebookPanel   = $("notebook-panel");
@@ -48,6 +48,8 @@ const poopCtx         = poopCanvas?.getContext("2d");
 const EASTER_EGG_WORD = "gracjan";
 const NOTEBOOK_STORAGE_KEY = "general-hook:notebook-urls";
 const AMBIENCE_STORAGE_KEY = "general-hook:sea-ambience";
+const THEME_STORAGE_KEY = "general-hook:theme";
+const themeBtn = $("theme-btn");
 let lastPointerPos = {
   x: window.innerWidth * 0.5,
   y: window.innerHeight * 0.5,
@@ -91,11 +93,26 @@ $("toggle-ambience-btn").addEventListener("click", async () => {
 
 notebookBtn.addEventListener("click", (e) => {
   e.stopPropagation();
+  $("settings-dropdown").classList.add("hidden");
   notebookPanel.classList.toggle("hidden");
 });
 
 notebookClose.addEventListener("click", () => {
   notebookPanel.classList.add("hidden");
+});
+
+// ── Theme toggle ──────────────────────────────────────────────────────────────
+function applyTheme(light) {
+  document.body.classList.toggle("light", light);
+  themeBtn.setAttribute("aria-checked", String(light));
+}
+
+applyTheme(localStorage.getItem(THEME_STORAGE_KEY) === "light");
+
+themeBtn.addEventListener("click", () => {
+  const light = !document.body.classList.contains("light");
+  applyTheme(light);
+  localStorage.setItem(THEME_STORAGE_KEY, light ? "light" : "dark");
 });
 
 window.addEventListener("pointermove", (event) => {
@@ -129,7 +146,7 @@ document.addEventListener("keydown", (event) => {
 }, true);
 
 document.addEventListener("click", (event) => {
-  if (!event.target.closest(".notebook-wrapper")) {
+  if (!event.target.closest(".settings-wrapper")) {
     notebookPanel.classList.add("hidden");
   }
 });
@@ -304,8 +321,9 @@ function refreshSpecPreview() {
   const spec = buildOpenApiSpec(specInfo, specEndpoints);
   const yamlStr = specToYaml(spec);
   $("spec-preview").textContent = yamlStr;
-  const blob = new Blob([yamlStr], { type: "text/yaml" });
-  $("spec-download-btn").href = URL.createObjectURL(blob);
+  if (specBlobUrl) URL.revokeObjectURL(specBlobUrl);
+  specBlobUrl = URL.createObjectURL(new Blob([yamlStr], { type: "text/yaml" }));
+  $("spec-download-btn").href = specBlobUrl;
 }
 
 $("spec-title").addEventListener("input", refreshSpecPreview);
@@ -413,7 +431,7 @@ copyBtn.addEventListener("click", () => {
 // ── Spectrum tape-load overlay ────────────────────────────────────────────────
 // Modal-only loading state. No scanline or border frame.
 
-let dotsTimer     = null;
+let dotsTimer = null;
 
 function startSpectrumOverlay() {
   const overlay = $("spectrum-overlay");
@@ -448,8 +466,6 @@ function hideSpectrumOverlay() {
     overlay.style.transition = "";
   }, 300);
 }
-
-function advanceSpectrumOverlay() {}
 
 function completeSpectrumOverlay(url, routeCount, isWebhook) {
   clearInterval(dotsTimer);
@@ -500,11 +516,9 @@ async function start() {
   startSpectrumOverlay();
 
   const pod = await BrowserPod.boot({ apiKey: import.meta.env.VITE_BP_APIKEY });
-  advanceSpectrumOverlay(24);
   await new Promise((r) => setTimeout(r, 500));
 
   const terminal = await pod.createDefaultTerminal(consoleEl);
-  advanceSpectrumOverlay(40);
 
   pod.onPortal(({ url }) => {
     const isWebhook  = currentTab === "webhooks";
@@ -518,12 +532,11 @@ async function start() {
       exampleRoute.textContent = url + "/webhook";
     } else {
       const first = getRoutes()[0];
-    if (first) exampleRoute.textContent = url + first.path;
+      if (first) exampleRoute.textContent = url + first.path;
     }
   });
 
   await pod.createDirectory("/project");
-  advanceSpectrumOverlay(52);
 
   const isRaw = currentTab === "upload" && uploadMode === "raw";
   const isWebhook = currentTab === "webhooks";
@@ -531,30 +544,22 @@ async function start() {
   if (isWebhook) {
     await copyFileTo(pod, "webhook/main.js", "/project/main.js");
     await copyFileTo(pod, "webhook/package.json", "/project/package.json");
-    advanceSpectrumOverlay(64);
     setStatus("Installing...", "loading");
-    advanceSpectrumOverlay(78);
     await pod.run("npm", ["install"], { echo: true, terminal, cwd: "/project" });
     setStatus("Starting...", "loading");
-    advanceSpectrumOverlay(90);
     pod.run("node", ["main.js"], { echo: true, terminal, cwd: "/project" });
   } else if (isRaw) {
     await writeTextFile(pod, "/project/raw-server.js", uploadedRawContent);
     await copyFile(pod, "project/package.json");
-    advanceSpectrumOverlay(72);
     setStatus("Starting...", "loading");
-    advanceSpectrumOverlay(90);
     pod.run("node", ["raw-server.js"], { echo: true, terminal, cwd: "/project" });
   } else {
     await copyFile(pod, "project/main.js");
     await copyFile(pod, "project/package.json");
     await writeTextFile(pod, "/project/routes.json", JSON.stringify(getRoutes()));
-    advanceSpectrumOverlay(68);
     setStatus("Installing...", "loading");
-    advanceSpectrumOverlay(82);
     await pod.run("npm", ["install"], { echo: true, terminal, cwd: "/project" });
     setStatus("Starting...", "loading");
-    advanceSpectrumOverlay(92);
     pod.run("node", ["main.js"], { echo: true, terminal, cwd: "/project" });
   }
 }
@@ -672,24 +677,6 @@ function saveNotebookUrl(url) {
   renderNotebook();
 }
 
-function getTextBeforeCaret(target) {
-  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-    if (typeof target.selectionStart !== "number") return "";
-    return target.value.slice(0, target.selectionStart);
-  }
-
-  if (target?.isContentEditable) {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return "";
-    const range = selection.getRangeAt(0).cloneRange();
-    range.selectNodeContents(target);
-    range.setEnd(selection.anchorNode, selection.anchorOffset);
-    return range.toString();
-  }
-
-  return "";
-}
-
 function getCaretViewportPosition(target) {
   if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
     return getTextInputCaretPosition(target);
@@ -722,7 +709,7 @@ function getTextInputCaretPosition(input) {
   mirror.style.left = "-9999px";
   mirror.style.top = "0";
   mirror.style.whiteSpace = input instanceof HTMLTextAreaElement ? "pre-wrap" : "pre";
-  mirror.style.wordWrap = "break-word";
+  mirror.style.overflowWrap = "break-word";
   mirror.style.visibility = "hidden";
   mirror.style.font = style.font;
   mirror.style.letterSpacing = style.letterSpacing;

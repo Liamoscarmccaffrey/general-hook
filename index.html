@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/style.css" />
+  <script>if(localStorage.getItem('general-hook:theme')==='light')document.body.classList.add('light');</script>
   </head>
   <body class="scene-page">
     <div id="starfield" aria-hidden="true"></div>
@@ -24,15 +25,13 @@
         <div class="ship-controls">
           <button class="btn-primary btn-run" id="start-btn">RUN</button>
           <div class="settings-wrapper">
-            <button class="btn-settings" id="settings-btn">&#x2699; SETTINGS</button>
+            <button class="btn-settings" id="settings-btn">&#x2630;</button>
             <div class="settings-dropdown hidden" id="settings-dropdown">
               <button id="toggle-ambience-btn">SEA SOUND: OFF</button>
               <button id="toggle-terminal-btn">SEE TERMINAL</button>
+              <button id="notebook-btn">NOTEBOOK</button>
               <a href="/docs.html">DOCS</a>
             </div>
-          </div>
-          <div class="notebook-wrapper">
-            <button class="btn-notebook" id="notebook-btn">NOTEBOOK</button>
             <div class="notebook-panel hidden" id="notebook-panel">
               <div class="notebook-header">
                 <span class="notebook-title">Notebook</span>
@@ -47,6 +46,11 @@
               </div>
             </div>
           </div>
+          <button id="theme-btn" class="btn-theme" role="switch" aria-checked="false" aria-label="Toggle day/night mode">
+            <span class="theme-moon">☽</span>
+            <span class="theme-track"><span class="theme-thumb"></span></span>
+            <span class="theme-sun">☀</span>
+          </button>
         </div>
       </div>
 
@@ -54,18 +58,18 @@
             <div class="config-card-title">
               <div class="config-card-title-text">GENERAL HOOK</div>
               <div class="status-strip" aria-live="polite">
-                <span class="status-label">SYSTEM</span>
+                <span class="status-label">POD</span>
                 <div id="status" class="status status-idle">
                   <span class="status-dot" aria-hidden="true"></span>
-                  <span id="status-text">IDLE</span>
+                  <span id="status-text">OFFLINE</span>
                 </div>
               </div>
             </div>
             <div class="tabs">
               <button class="tab active" data-tab="builder">CREATE API</button>
-              <button class="tab" data-tab="upload">CREATE API FROM FILE</button>
-              <button class="tab" data-tab="spec">GENERATE OPENAPI YAML</button>
-              <button class="tab" data-tab="webhooks">CREATE WEBHOOK</button>
+              <button class="tab" data-tab="upload">UPLOAD API</button>
+              <button class="tab" data-tab="spec">OPENAPI YAML</button>
+              <button class="tab" data-tab="webhooks">LAUNCH WEBHOOK</button>
             </div>
             <div class="tab-panel" id="tab-builder">
               <div class="tab-panel-inner">
@@ -242,6 +246,7 @@
     <canvas id="water-canvas"></canvas>
     <img class="boat-img" src="/pixel_boat_detailed.svg" alt="" aria-hidden="true" />
     <script src="/src/stars.js"></script>
+    <script src="/src/clouds.js"></script>
     <script src="/src/water.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
