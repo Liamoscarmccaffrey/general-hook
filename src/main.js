@@ -68,7 +68,12 @@ ambienceAudio.volume = 0.1;
 ambienceAudio.preload = "auto";
 
 // ── Welcome screen ────────────────────────────────────────────────────────────
+if (localStorage.getItem("general-hook:welcomed")) {
+  $("welcome-screen").classList.add("hidden");
+}
+
 $("welcome-start-btn").addEventListener("click", () => {
+  localStorage.setItem("general-hook:welcomed", "1");
   const ws = $("welcome-screen");
   ws.classList.add("fading");
   setTimeout(() => ws.classList.add("hidden"), 350);

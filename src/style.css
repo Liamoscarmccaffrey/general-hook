@@ -489,7 +489,7 @@ body.scene-page::after {
   flex-direction: column;
   width: 60%;
   margin-right: auto;
-  height: 420px;
+  height: 483px;
 }
 
 .tabs {
@@ -1114,8 +1114,8 @@ body.light .more-routes { color: var(--muted); }
   .docs-section p, .docs-section li { font-size: 14px; }
 
   body { padding: 16px 12px; }
-  body.scene-page::before { top: 48px; right: 30px; width: 48px; height: 48px; }
-  body.scene-page::after { top: 24px; right: 2px; width: 108px; height: 108px; }
+  body.scene-page::before,
+  body.scene-page::after { display: none; }
 
   .app-header { flex-direction: column; align-items: flex-start; gap: 12px; }
   .maker-credit { font-size: 12px; }
