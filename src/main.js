@@ -495,6 +495,15 @@ function startSpectrumOverlay() {
   const overlay = $("spectrum-overlay");
   clearInterval(dotsTimer);
 
+  // Reset modal position (may have been dragged)
+  const modal = $("sov-modal");
+  modal.style.position = "";
+  modal.style.left = "";
+  modal.style.top = "";
+  modal.style.transform = "";
+  modal.style.width = "";
+  modal.style.margin = "";
+
   // Reset modal content
   $("sov-art").textContent = "";
   $("sov-url-row").classList.add("hidden");
@@ -878,7 +887,7 @@ function stepPoopParticles(now) {
 }
 
 // ── Draggable windows ─────────────────────────────────────────────────────────
-function makeDraggable(card, handle) {
+function makeDraggable(card, handle, zIndex = "10") {
   handle.addEventListener("mousedown", (e) => {
     if (e.target.closest("button, a, input, select, textarea")) return;
     e.preventDefault();
@@ -887,7 +896,7 @@ function makeDraggable(card, handle) {
     if (getComputedStyle(card).position !== "fixed") {
       card.style.position = "fixed";
       card.style.width    = rect.width + "px";
-      card.style.zIndex   = "10";
+      card.style.zIndex   = zIndex;
       card.style.margin   = "0";
     }
     card.style.left      = rect.left + "px";
@@ -920,6 +929,7 @@ makeDraggable(portalCard,         portalCard.querySelector(".portal-label"));
 makeDraggable(asciiSuccess,       asciiSuccess);
 makeDraggable(consoleCard,        consoleCard.querySelector(".terminal-label"));
 makeDraggable(notebookPanel,      notebookPanel.querySelector(".notebook-header"));
+makeDraggable($("sov-modal"),     $("sov-modal").querySelector(".sov-inner"), "9001");
 
 // ── Page close warning ────────────────────────────────────────────────────────
 window.addEventListener("beforeunload", (e) => {
