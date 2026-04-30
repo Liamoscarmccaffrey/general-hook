@@ -9,7 +9,9 @@
   },
   "dependencies": {
     "@leaningtech/browserpod": "2.3.4",
-    "js-yaml": "^4.1.0"
+    "install": "^0.13.0",
+    "js-yaml": "^4.1.0",
+    "npm": "^11.13.0"
   },
   "devDependencies": {
     "vite": "^5.0.0"
