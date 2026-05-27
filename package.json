@@ -8,7 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@leaningtech/browserpod": "2.3.4",
+    "@leaningtech/browserpod": "2.8.0",
     "install": "^0.13.0",
     "js-yaml": "^4.1.0",
     "npm": "^11.13.0"
